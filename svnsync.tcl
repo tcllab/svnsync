@@ -1,6 +1,7 @@
 #!/usr/bin/env tclsh
 
-# Copyright (c) 2021 Stephen E. Huntley <stephen.huntley@alum.mit.edu>
+# svnsync.tcl version 1.1
+# Copyright (c) 2021-2023 Stephen E. Huntley <stephen.huntley@alum.mit.edu>
 # License: Tcl License
 
 namespace eval ::svnsync {
@@ -55,6 +56,7 @@ proc help {} {
 		set svnsync svnsync.tcl
 	}
 	
+	puts "\nsvnsync.tcl version 1.1\n"
 	puts "syntax: [subst -nocom $syntax]\n"
 	puts [string trim $help]
 }
@@ -100,8 +102,6 @@ proc svnsync {args} {
 
 	set log_message "svn sync [clock format [clock seconds]]"
 
-	#set args $::argv
-
 	if {[set autoconfirm [lsearch $args -a*]] > -1} {
 		set autoconfirm_val [lindex $args $autoconfirm]
 		if {[string first $autoconfirm_val {-autoconfirm}]} {
@@ -118,11 +118,14 @@ proc svnsync {args} {
 	}
 
 	set lkey [dict keys $args {-l*}]
+	incr log_prompt 0
 	if {[string first $lkey {-log_message}]} {
-		error "Incorrect argument: $lkey . Must be -autoconfirm or -log_message"
+		#error "Incorrect argument: $lkey . Must be -autoconfirm or -log_message"
+		incr log_prompt
+	} else {
+		set log_message [dict get $args $lkey]
+		set args [dict remove $args $lkey]
 	}
-	set log_message [dict get $args $lkey]
-	set args [dict remove $args $lkey]
 
 	lassign $args PATH URL
 
@@ -147,6 +150,9 @@ proc svnsync {args} {
 	#############
 
 		set co_output [exec svn checkout $URL $PATH --force]
+		if {![string first "Checked out revision" $co_output]} {
+			error "svnsync not allowed within existing working copy."
+		}
 		set co_output_list [split $co_output \n]
 
 		unset -nocomplain existing_list
@@ -172,11 +178,19 @@ proc svnsync {args} {
 		puts $status\n\n
 
 		if {!$autoconfirm} {
+			set pid {}
+			catch {set pid [exec [auto_execok tkrev] -dir $PATH &]}
+			if {$log_prompt} {
+				puts -nonewline "Log message: "
+				flush stdout
+				set lm [string trim [gets stdin]]
+				if {$lm ne {}} {set log_message $lm}
+			}
 			puts -nonewline "Proceed? (Y/n): "
 			flush stdout
 			if {[gets stdin] ni {Y y {} } } {
-			puts	"Aborted."
-					return
+				puts	"Aborted."
+				return
 			}
 		}
 
@@ -197,7 +211,7 @@ proc svnsync {args} {
 				file delete -force [file join $PATH .svn]
 			}
 		}
-
+		catch {exec kill -9 $pid}
 	}
 
 }

@@ -1,4 +1,4 @@
-# svnsync.tcl v. 1.0
+# svnsync.tcl v. 1.1
 
 ## Usage:
 
@@ -16,25 +16,40 @@
 
 -----
 
-svnsync syncs the contents of any local directory to any location within a
-Subversion repository.  Adds and deletes files within the repository as
-necessary.
+[svnsync](https://github.com/tcllab/svnsync) is a command-line program to sync 
+the contents of any local directory to any location within a Subversion 
+repository.  Adds and deletes files within the repository as necessary.
 
 The local checkout directory is left unchanged; this includes final deletion of
-the .svn subdirectory, so the local directory is no longer a valid Subversion
-working checkout when the command completes.
+the .svn subdirectory created during the Subversion checkout process -- so when 
+svnsync completes, the local directory is no longer a valid Subversion working 
+copy.
 
-The checkout status is output before committing, so the user knows what changes
-are to be made to the repository.  User is given a chance to abort before
-committing changes, unless the `-autoconfirm` option is specified.
+The checkout status is output to the screen and svnsync pauses before 
+committing, so the user knows what changes are to be made to the repository.  
+The user is given a chance to abort before committing changes.  The user also 
+has a chance to enter a log message at the pause, unless the `-log_message` 
+option is given on the command line.  If the `-autoconfirm` option is given, 
+then there is no pause and the changes are committed as they are.  A 
+human-readable timestamp is used as a default log message if the user has not 
+specified one.
 
 Updates and merges are beyond the scope of this command.  If necessary they
 must be done independently by the user before executing svnsync.  If desired,
-the user may kill the program (e.g., `ctrl-c`) at the point of commit
+the user may kill the program (e.g., `ctrl-c`) at the pause before commit
 confirmation, in which case the local directory will remain as a Subversion
 working checkout and the user can make changes using Subversion's tools.  The
-user may then commit, or (after deleting the .svn subdirectory) run svnsync
-again.
+user may then commit using Subversion directly, or (after deleting the .svn 
+subdirectory) run svnsync again.
+
+As an alternative to the above, a very handy and compact Tcl/Tk-based GUI tool 
+called [tkrev](https://sourceforge.net/projects/tkcvs/) is launched by svnsync 
+if it is found in the user's executable path.  tkrev is useful for quickly 
+examining the Subversion repository and working copy contents, checking file 
+diffs, making edits, reverting file contents, etc.  svnsync will launch tkrev 
+right before it pauses for commit confirmation, then close it after the commit 
+is done.  N.B. tkrev is not included in the svnsync distribution, it must be 
+installed separately by the user.
 
 ## Why svnsync?
 
@@ -45,7 +60,7 @@ source configuration management tool, as a personal backup/archive utility.
 A software version control tool such as Subversion is typically designed to 
 manage the contributions of teams of people to a single repository of work; 
 such a program provides powerful tools for detecting collisions in people's 
-contributions, and analyzing and eliminating those collisions; thus insuring 
+contributions, and analyzing and eliminating those collisions; thus ensuring 
 that no-one's work is lost.
 
 But a personal backup program doesn't need to use those tools.  The svnsync 
@@ -62,10 +77,36 @@ Of course Subversion's analysis and merge tools remain available in case you
 ever find yourself in the situation of needing to compare and merge two 
 versions of your own work.
 
+## Suggested usage
+
+I store and transport my Subversion repository on a password-protected USB 
+flash drive.  Checking out working copies from a local repo goes quickly, even 
+for large file collections.  Trying to use a remote repository over a network 
+for backup-scale checkouts would likely be unacceptably slow.  Plus, 
+hand-carrying a flash drive means I can back up public and work computers 
+without firewall issues, and it eliminates concerns about network problems and 
+server failures.
+
+I use [rclone](https://rclone.org/) to back up my USB Subversion repository to 
+a remote cloud file storage site.  Thus if my flash drive is lost or breaks, I 
+can simply use rclone to copy the repository back to a new drive and carry on.  
+Subversion makes this task straightforward, since all of a backup commit's 
+changes are incorporated into a single file, so the rclone copy typically just 
+involves one file and a handful of small metadata files.
+
+When doing a backup, I generally don't use the `-log_message` option.  When 
+svnsync pauses for confirmation and launches tkrev, I use tkrev to review file 
+changes, then I write a log message at the command line prompt.  Then I 
+instruct the script to proceed with the commit.
+
+I run `svnadmin verify` on the local repository to ensure there are no 
+corruptions in the repo files.  Then I use rclone to back up the local 
+repository files to an internet file storage account.
+
 ## Why Subversion?
 
 Subversion is billed as a source configuration management/version control tool, 
-successor to CVS and precursor to git.  But in the category it's something of 
+successor to CVS and precursor to git.  But in this category it's something of 
 an odd duck.  The server-side main repository of a Subversion project can be 
 thought of simply as a portable cloud-ready versioning virtual filesystem, with 
 minimal features actually related to source configuration.  For example, the 
@@ -88,28 +129,28 @@ from the start to handle all files as binary, as opposed to git which was
 designed to handle text files and has struggled to incorporate support for 
 large collections of binaries.
 
-Each Subversion commit does file de-duplication (as git does), and stores file 
-changes as deltas, captures all commit info as one file and compresses the 
-commit file (tasks which git only does under specialized circumstances if at 
-all).  Thus Subversion commits are optimized for storage and transmission to 
-cloud endpoints.
+Each Subversion commit does file de-duplication (as git does), and in addition 
+stores file changes as deltas, captures all of a commit's changes in one file, 
+and compresses the commit file (tasks which git only does under specialized 
+circumstances if at all).  Thus Subversion commits are optimized for storage 
+and transmission to cloud endpoints.
 
 All these features and properties taken together make it easy to envision 
-Subversion as a powerful backup/archiving tool.  The one task that does not fit 
-naturally into this vision is merging of file changes into the repository, 
-which requires a local checkout and possibly several other steps. This is the 
-part that svnsync is designed to automate.
+Subversion as a powerful, cloud-optimized backup/archiving tool.  The one task 
+that does not fit naturally into this vision is transmitting file changes into 
+the repository, which requires a local checkout and possibly several other 
+steps. This is the part that svnsync is designed to automate.
 
 A perl script exists in Subversion's own repository that purports to do what 
 svnsync does.  But it is thousands of lines long, old, unmaintained, and no 
-longer works with current versions of Subversion.  New features added to 
+longer works with current versions of Subversion.  But new features added to 
 Subversion in the past half-dozen or so years have made it easy to accomplish 
 the task in just a couple of hundred lines.
 
 ## Why another backup solution?
 
 Backup tools abound.  But the ones I've examined tend to be designed to back up 
-a computer's files and restore them if called for to the same computer, or one 
+a computer's files and restore them (if necessary) to the same computer, or one 
 very much like it; or are meant to manage groups of substantially similar 
 computers.
 
@@ -159,6 +200,6 @@ for an extended period of time.
 
 ## License and Copyright
 
-Copyright (c) 2022 Stephen Huntley (stephen.huntley@alum.mit.edu)
+Copyright (c) 2022-2023 Stephen Huntley (stephen.huntley@alum.mit.edu)
 
 License: Tcl license
