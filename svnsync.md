@@ -26,7 +26,7 @@ svnsync completes, the local directory is no longer a valid Subversion working
 copy.
 
 The checkout status is output to the screen and svnsync pauses before 
-committing, so the user knows what changes are to be made to the repository.  
+committing, so the user knows what changes are to be made to the repository.
 The user is given a chance to abort before committing changes.  The user also 
 has a chance to enter a log message at the pause, unless the `-log_message` 
 option is given on the command line.  If the `-autoconfirm` option is given, 
